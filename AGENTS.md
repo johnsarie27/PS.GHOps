@@ -33,13 +33,14 @@ human running ad-hoc org reports and maintenance from a shell.
 
 | Helper | Purpose |
 |---|---|
-| `Invoke-GHCli` | Runs a `gh` **subcommand** with `$PSNativeCommandUseErrorActionPreference` isolation, `$LASTEXITCODE` checking, a consistent terminating error on failure, and optional `-AsJson` parsing. Subcommands only — REST goes through PS.GitHub's `Invoke-GhApi`. |
+| `Invoke-GHCli` | Runs a `gh` **subcommand** with `$PSNativeCommandUseErrorActionPreference` isolation, `$LASTEXITCODE` checking, a consistent terminating error on failure, and optional `-AsJson` parsing. Subcommands only. |
+| `Invoke-GHApi` | REST counterpart: runs `gh api <Path>` with the same preference isolation, `-AllowNotFound` (404 → `$null`), `-Paginate` (flattens `--slurp` pages), and JSON parsing. |
 
 `FunctionsToExport` in [PS.GHOps.psd1](PS.GHOps.psd1) is the authoritative export list.
 
 ## Cross-cutting rules every public function honors
 
-1. **Two lanes for `gh`.** Subcommands (`gh repo list`, `gh search issues`) go through the private `Invoke-GHCli`; REST calls (`gh api …`) go through PS.GitHub's `Invoke-GhApi` (once the dependency is wired — see ADR-0001). No bare `& gh` in `Public/`.
+1. **Two lanes for `gh`.** Subcommands (`gh repo list`, `gh search issues`) go through the private `Invoke-GHCli`; REST calls (`gh api …`) go through the private `Invoke-GHApi`. No bare `& gh` in `Public/`. Both wrappers isolate `$PSNativeCommandUseErrorActionPreference`.
 2. **Native-preference isolation.** `Invoke-GHCli` sets `$PSNativeCommandUseErrorActionPreference = $false` so a caller that enabled it cannot turn the `& gh` + `$LASTEXITCODE` pattern into a `NativeCommandExitException`.
 3. **No `--jq` / `--query` for filter/project.** Return deserialized objects; callers use the pwsh pipeline (`Where-Object` / `Select-Object` / `Group-Object`).
 4. **Active repos by default.** Org-scanning functions exclude archived repos and forks by default (`gh repo list --no-archived --source`) with `-IncludeArchived` / `-IncludeFork` opt-in switches.
@@ -77,4 +78,4 @@ PS.GHOps/
 
 ## Relationship to PS.GitHub
 
-`PS.GHOps` is intended to take a `RequiredModules` dependency on `PS.GitHub` once the public functions consume `Invoke-GhApi` for their REST calls. Until then the functions use raw `gh` and the manifest declares no required modules (so import/CI do not require an as-yet-unpublished `PS.GitHub`). See [`docs/adr/0001`](docs/adr/0001-github-operator-toolkit-module.md).
+`PS.GHOps` is a **standalone** module: it depends only on the `gh` CLI, not on `PS.GitHub`. Both modules share design DNA (the `Invoke-Gh*` wrapper pattern, ADR-driven governance), but `PS.GHOps` owns its own `gh` internals (`Invoke-GHCli` + `Invoke-GHApi`) rather than taking a runtime dependency — which sidesteps `PS.GitHub`'s unresolved gallery/distribution question. See [`docs/adr/0002`](docs/adr/0002-self-contained-gh-wrappers.md) (supersedes the layering half of ADR-0001).

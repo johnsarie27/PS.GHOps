@@ -98,11 +98,7 @@ function Get-GHIssue {
         $searchArgs.AddRange([System.String[]] @('--limit', $Limit.ToString(), '--json', $jsonFields))
 
         # RUN THE SEARCH
-        $raw = gh search issues @searchArgs
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error -Message 'gh search issues failed' -ErrorAction Stop
-        }
-        $issues = @($raw | ConvertFrom-Json)
+        $issues = @(Invoke-GHCli -Argument (@('search', 'issues') + $searchArgs) -AsJson)
 
         # FILTER THE ORG RESULT SET BY REPO-NAME PREFIX (SINGLE-SEARCH PREFIX SCOPE)
         if ($Prefix) {

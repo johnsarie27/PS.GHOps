@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. Superseded in part by [ADR-0002](0002-self-contained-gh-wrappers.md): the deferred `PS.GitHub` `RequiredModules` dependency is withdrawn in favor of a local `Invoke-GHApi`, so the module depends only on the `gh` CLI.
 
 ## Context
 

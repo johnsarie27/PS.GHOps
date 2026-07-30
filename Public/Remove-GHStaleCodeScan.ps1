@@ -100,23 +100,15 @@ function Remove-GHStaleCodeScan {
             $branchName = $Branch -replace '^refs/heads/', ''
         }
         else {
-            $repoJson = gh api ('repos/{0}/{1}' -f $Owner, $Repository) 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                Write-Error -Message ('Failed to read repository [{0}/{1}]: {2}' -f $Owner, $Repository, ($repoJson -join ' ')) -ErrorAction Stop
-            }
-            $branchName = ($repoJson | ConvertFrom-Json).default_branch
+            $branchName = (Invoke-GHApi -Path ('repos/{0}/{1}' -f $Owner, $Repository)).default_branch
         }
 
         # BUILD THE FULLY-QUALIFIED REF
         $ref = 'refs/heads/{0}' -f $branchName
         Write-Verbose -Message ('Target: {0}/{1} @ {2}' -f $Owner, $Repository, $ref)
 
-        # LIST EVERY CODE SCANNING ANALYSIS ON THE REF >> --paginate merges pages
-        $analysesJson = gh api --paginate ('repos/{0}/{1}/code-scanning/analyses?ref={2}&per_page=100' -f $Owner, $Repository, $ref) 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error -Message ('Failed to list code scanning analyses: {0}' -f ($analysesJson -join ' ')) -ErrorAction Stop
-        }
-        $analyses = $analysesJson | ConvertFrom-Json
+        # LIST EVERY CODE SCANNING ANALYSIS ON THE REF (ALL PAGES)
+        $analyses = @(Invoke-GHApi -Path ('repos/{0}/{1}/code-scanning/analyses?ref={2}&per_page=100' -f $Owner, $Repository, $ref) -Paginate)
 
         if (-not $analyses) {
             Write-Warning -Message ('No code scanning analyses found on [{0}].' -f $ref)
@@ -151,9 +143,9 @@ function Remove-GHStaleCodeScan {
                 # DERIVE THE WORKFLOW PATH >> everything before the final ':'
                 $wfPath = $grp.Name.Substring(0, $grp.Name.LastIndexOf(':'))
 
-                # CHECK WHETHER THE FILE STILL EXISTS ON THE REF >> non-zero exit means missing (404)
-                gh api --silent ('repos/{0}/{1}/contents/{2}?ref={3}' -f $Owner, $Repository, $wfPath, $ref) 2>&1 | Out-Null
-                if ($LASTEXITCODE -ne 0) {
+                # STALE WHEN THE WORKFLOW FILE NO LONGER EXISTS ON THE REF (TOLERATED 404)
+                $wfFile = Invoke-GHApi -Path ('repos/{0}/{1}/contents/{2}?ref={3}' -f $Owner, $Repository, $wfPath, $ref) -AllowNotFound
+                if (-not $wfFile) {
                     Write-Verbose -Message ('Stale configuration detected: {0} (missing {1})' -f $grp.Name, $wfPath)
                     $grp
                 }
@@ -182,18 +174,18 @@ function Remove-GHStaleCodeScan {
             foreach ($analysis in $ordered) {
 
                 $deletePath = 'repos/{0}/{1}/code-scanning/analyses/{2}?confirm_delete=true' -f $Owner, $Repository, $analysis.id
-                $result = gh api -X DELETE $deletePath 2>&1
-
-                if ($LASTEXITCODE -eq 0) {
+                try {
+                    Invoke-GHApi -Path $deletePath -Method DELETE | Out-Null
                     $deleted++
                 }
-                elseif ($result -match '404') {
-
+                catch {
                     # ALREADY GONE >> tolerate transient re-reads and idempotent re-runs
-                    Write-Verbose -Message ('Analysis [{0}] already deleted.' -f $analysis.id)
-                }
-                else {
-                    Write-Error -Message ('Failed to delete analysis [{0}]: {1}' -f $analysis.id, ($result -join ' ')) -ErrorAction Stop
+                    if ($PSItem.Exception.Message -match '404') {
+                        Write-Verbose -Message ('Analysis [{0}] already deleted.' -f $analysis.id)
+                    }
+                    else {
+                        Write-Error -Message ('Failed to delete analysis [{0}]: {1}' -f $analysis.id, $PSItem.Exception.Message) -ErrorAction Stop
+                    }
                 }
             }
 

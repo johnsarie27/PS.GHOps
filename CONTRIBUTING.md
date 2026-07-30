@@ -35,8 +35,8 @@
   | `Deprecated` | Still works but will be removed in a future release |
 
 - Route `gh` calls correctly (see [AGENTS.md](AGENTS.md#cross-cutting-rules-every-public-function-honors)):
-  **subcommands** through the private `Invoke-GHCli`, **REST** through
-  PS.GitHub's `Invoke-GhApi`. No bare `& gh` in `Public/`.
+  **subcommands** through the private `Invoke-GHCli`, **REST** through the
+  private `Invoke-GHApi`. No bare `& gh` in `Public/`.
 - Do not use `--jq` / `--query` for filter/project; return `[PSCustomObject]`
   and let callers use the pwsh pipeline.
 - Org-scanning functions exclude archived repos and forks by default, with

@@ -33,10 +33,9 @@
     PowerShellVersion    = '7.4'
 
     # Modules that must be imported into the global environment prior to importing this module.
-    # NOTE: intended to become @(@{ ModuleName = 'PS.GitHub'; ModuleVersion = '0.2.0' })
-    # once the public functions consume Invoke-GhApi for their REST calls. Left
-    # empty while they use raw 'gh' so import/CI do not require PS.GitHub (which
-    # is not yet published to a gallery). See docs/adr/0001.
+    # Intentionally empty: gh subcommands go through the private Invoke-GHCli and
+    # REST calls through the private Invoke-GHApi, so the module depends only on
+    # the gh CLI (no PowerShell-module runtime dependency). See docs/adr/0002.
     RequiredModules      = @()
 
     # Functions to export from this module. Populated per-PR as functions land.

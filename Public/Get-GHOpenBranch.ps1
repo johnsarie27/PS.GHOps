@@ -87,12 +87,7 @@ function Get-GHOpenBranch {
         if (-not $IncludeArchived) { $repoArgs.Add('--no-archived') }
         if (-not $IncludeFork) { $repoArgs.Add('--source') }
         $repoArgs.AddRange([System.String[]] @('--limit', $Limit.ToString(), '--json', 'name,defaultBranchRef'))
-        $reposJson = gh repo list @repoArgs
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error -Message ('Failed to list repositories for organization [{0}]' -f $Organization) -ErrorAction Stop
-        }
-
-        $repos = @($reposJson | ConvertFrom-Json)
+        $repos = @(Invoke-GHCli -Argument (@('repo', 'list') + $repoArgs) -AsJson)
         Write-Verbose -Message ('Enumerating branches across {0} repositories in [{1}]' -f $repos.Count, $Organization)
 
         # EVALUATE EACH REPO
@@ -103,10 +98,12 @@ function Get-GHOpenBranch {
 
             $default = $repo.defaultBranchRef.name
 
-            # LIST ALL BRANCH NAMES >> --paginate + '.[].name' FLATTENS PAGES TO string[]
+            # LIST ALL BRANCH NAMES ACROSS PAGES
             $branchPath = 'repos/{0}/{1}/branches?per_page=100' -f $Organization, $repo.name
-            $names = gh api --paginate $branchPath --jq '.[].name'
-            if ($LASTEXITCODE -ne 0) {
+            try {
+                $names = (Invoke-GHApi -Path $branchPath -Paginate).name
+            }
+            catch {
                 Write-Warning -Message ('Failed to list branches for [{0}/{1}]; skipping' -f $Organization, $repo.name)
                 continue
             }
