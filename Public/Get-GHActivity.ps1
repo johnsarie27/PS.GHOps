@@ -78,7 +78,7 @@ function Get-GHActivity {
 
         [Parameter(HelpMessage = 'GitHub login to report on; defaults to the authenticated user')]
         [ValidateNotNullOrEmpty()]
-        [System.String] $User = (gh api user --jq '.login'),
+        [System.String] $User = (Invoke-GHApi -Path 'user').login,
 
         [Parameter(HelpMessage = 'Emit the When timestamp in UTC instead of local time')]
         [System.Management.Automation.SwitchParameter] $Utc
@@ -114,23 +114,23 @@ function Get-GHActivity {
         # RUN ONE SEARCH PER SELECTED KIND ($Kind IS AN ARRAY; switch ITERATES IT)
         switch ($Kind) {
             'Issue(opened)' {
-                $opened = gh search issues --involves $User --created $dateFilter --json $jsonFields --limit 100 | ConvertFrom-Json
+                $opened = Invoke-GHCli -Argument 'search', 'issues', '--involves', $User, '--created', $dateFilter, '--json', $jsonFields, '--limit', '100' -AsJson
                 & $toRows $opened 'Issue(opened)' 'createdAt' $Utc
             }
             'Issue(closed)' {
-                $closed = gh search issues --involves $User --state closed --closed $dateFilter --json $jsonFields --limit 100 | ConvertFrom-Json
+                $closed = Invoke-GHCli -Argument 'search', 'issues', '--involves', $User, '--state', 'closed', '--closed', $dateFilter, '--json', $jsonFields, '--limit', '100' -AsJson
                 & $toRows $closed 'Issue(closed)' 'closedAt' $Utc
             }
             'PR(opened)' {
-                $prOpened = gh search prs --involves $User --created $dateFilter --json $jsonFields --limit 100 | ConvertFrom-Json
+                $prOpened = Invoke-GHCli -Argument 'search', 'prs', '--involves', $User, '--created', $dateFilter, '--json', $jsonFields, '--limit', '100' -AsJson
                 & $toRows $prOpened 'PR(opened)' 'createdAt' $Utc
             }
             'PR(merged)' {
-                $prMerged = gh search prs --involves $User --merged --merged-at $dateFilter --json $jsonFields --limit 100 | ConvertFrom-Json
+                $prMerged = Invoke-GHCli -Argument 'search', 'prs', '--involves', $User, '--merged', '--merged-at', $dateFilter, '--json', $jsonFields, '--limit', '100' -AsJson
                 & $toRows $prMerged 'PR(merged)' 'closedAt' $Utc
             }
             'PR(closed)' {
-                $prClosed = gh search prs 'is:unmerged' --involves $User --closed $dateFilter --json $jsonFields --limit 100 | ConvertFrom-Json
+                $prClosed = Invoke-GHCli -Argument 'search', 'prs', 'is:unmerged', '--involves', $User, '--closed', $dateFilter, '--json', $jsonFields, '--limit', '100' -AsJson
                 & $toRows $prClosed 'PR(closed)' 'closedAt' $Utc
             }
         }

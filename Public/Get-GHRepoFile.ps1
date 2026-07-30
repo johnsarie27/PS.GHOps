@@ -81,23 +81,15 @@ function Get-GHRepoFile {
         if (-not $IncludeArchived) { $repoArgs.Add('--no-archived') }
         if (-not $IncludeFork) { $repoArgs.Add('--source') }
         $repoArgs.AddRange([System.String[]] @('--limit', $Limit.ToString(), '--json', 'nameWithOwner,visibility'))
-        $reposJson = gh repo list @repoArgs
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error -Message ('Failed to list repositories for organization [{0}]' -f $Organization) -ErrorAction Stop
-        }
-        $repos = @($reposJson | ConvertFrom-Json)
+        $repos = @(Invoke-GHCli -Argument (@('repo', 'list') + $repoArgs) -AsJson)
         Write-Verbose -Message ('Checking [{0}] across {1} repositories in [{2}]' -f $Path, $repos.Count, $Organization)
 
-        # CHECK EACH REPO >> 404 FROM THE CONTENTS ENDPOINT MEANS THE FILE IS ABSENT
+        # CHECK EACH REPO >> A TOLERATED 404 FROM THE CONTENTS ENDPOINT MEANS ABSENT
         foreach ($repo in $repos) {
-            $result = gh api ('repos/{0}/contents/{1}' -f $repo.nameWithOwner, $Path) --silent 2>&1
-            if ($LASTEXITCODE -eq 0) {
-                $present = $true
+            try {
+                $present = $null -ne (Invoke-GHApi -Path ('repos/{0}/contents/{1}' -f $repo.nameWithOwner, $Path) -AllowNotFound)
             }
-            elseif ($result -match '404') {
-                $present = $false
-            }
-            else {
+            catch {
                 Write-Warning -Message ('Presence check failed for [{0}]; skipping' -f $repo.nameWithOwner)
                 continue
             }
