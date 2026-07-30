@@ -79,20 +79,6 @@ function Remove-GHStaleCodeScan {
     )
     Begin {
         Write-Verbose -Message ('Starting {0}' -f $MyInvocation.MyCommand)
-
-        # ENSURE THE gh CLI IS AVAILABLE
-        if (-not (Get-Command -Name 'gh' -ErrorAction Ignore)) {
-            Write-Error -Message 'The GitHub CLI (gh) was not found on PATH.' -ErrorAction Stop
-        }
-
-        # DECOUPLE FROM ANY CALLER-SET NATIVE ERROR PREFERENCE >> keep $LASTEXITCODE checks reliable
-        $PSNativeCommandUseErrorActionPreference = $false
-
-        # CONFIRM gh IS AUTHENTICATED >> fail fast with a clear message if not
-        gh auth status 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error -Message 'gh CLI is not authenticated. Run `gh auth login` first.' -ErrorAction Stop
-        }
     }
     Process {
         # RESOLVE THE TARGET BRANCH >> default to the repository default branch
