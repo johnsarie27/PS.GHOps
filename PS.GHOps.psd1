@@ -44,6 +44,7 @@
         'Get-GHIssue'
         'Get-GHOpenBranch'
         'Get-GHRepoFile'
+        'New-GHLabel'
         'Remove-GHStaleCodeScan'
     )
 
