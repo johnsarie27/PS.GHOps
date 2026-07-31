@@ -12,7 +12,7 @@
     # Major = significant changes, breaking changes or major new features
     # Minor = new functions or features
     # Build = bug fixes and minor updates
-    ModuleVersion        = '0.2.0'
+    ModuleVersion        = '0.3.0'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Core')
@@ -45,6 +45,7 @@
         'Get-GHOpenBranch'
         'Get-GHRepoFile'
         'Get-GHUnpinnedAction'
+        'New-GHIssue'
         'New-GHLabel'
         'Remove-GHStaleCodeScan'
     )
@@ -63,13 +64,13 @@
 
         PSData = @{
             # Tags applied to this module. These help with module discovery in online galleries.
-            Tags         = @('GitHub', 'gh', 'Operations', 'Reporting', 'Automation', 'DevOps')
+            Tags       = @('GitHub', 'gh', 'Operations', 'Reporting', 'Automation', 'DevOps')
 
             # A URL to the license for this module.
-            LicenseUri   = 'https://github.com/johnsarie27/PS.GHOps/blob/main/LICENSE'
+            LicenseUri = 'https://github.com/johnsarie27/PS.GHOps/blob/main/LICENSE'
 
             # A URL to the main website for this project.
-            ProjectUri   = 'https://github.com/johnsarie27/PS.GHOps'
+            ProjectUri = 'https://github.com/johnsarie27/PS.GHOps'
 
             # Release notes are auto-generated per tag from merged PR labels via
             # .github/release.yml. See:
