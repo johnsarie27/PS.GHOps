@@ -28,6 +28,7 @@ human running ad-hoc org reports and maintenance from a shell.
 | `Get-GHOpenBranch` | Experimental | Non-default branches across an org's active repos (`gh repo list` + branches REST). |
 | `Get-GHRepoFile` | Experimental | Presence/absence of a repo-relative file path across an org's repos. |
 | `Get-GHUnpinnedAction` | Experimental | Reports workflow `uses:` action refs not pinned to a commit SHA, across an org or explicit repos. |
+| `New-GHIssue` | Experimental | Creates an issue in a repository with optional body, labels, assignees, and milestone (issues REST). |
 | `New-GHLabel` | Experimental | Creates one or more labels in one or more repositories; skip-or-`-Update` on an existing label. |
 | `Remove-GHStaleCodeScan` | Beta | Removes orphaned code-scanning analyses that block PRs after a scanning workflow is renamed. |
 
@@ -36,7 +37,7 @@ human running ad-hoc org reports and maintenance from a shell.
 | Helper | Purpose |
 |---|---|
 | `Invoke-GHCli` | Runs a `gh` **subcommand** with `$PSNativeCommandUseErrorActionPreference` isolation, `$LASTEXITCODE` checking, a consistent terminating error on failure, and optional `-AsJson` parsing. Subcommands only. |
-| `Invoke-GHApi` | REST counterpart: runs `gh api <Path>` with the same preference isolation, `-AllowNotFound` (404 → `$null`), `-Paginate` (flattens `--slurp` pages), `-Field` (hashtable request body via `-f key=value`), and JSON parsing. |
+| `Invoke-GHApi` | REST counterpart: runs `gh api <Path>` with the same preference isolation, `-AllowNotFound` (404 → `$null`), `-Paginate` (flattens `--slurp` pages), `-Field` (hashtable request body: strings via `-f key=value`, integers via typed `-F key=value`, arrays via repeated `-f key[]=element`), and JSON parsing. |
 
 `FunctionsToExport` in [PS.GHOps.psd1](PS.GHOps.psd1) is the authoritative export list.
 

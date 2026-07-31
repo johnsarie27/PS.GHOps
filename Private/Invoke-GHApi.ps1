@@ -13,8 +13,11 @@ function Invoke-GHApi {
         -AllowNotFound converts an HTTP 404 into $null (rather than throwing),
         for existence checks. -Paginate follows all pages via 'gh api --paginate
         --slurp' and flattens them into a single object stream. -Field supplies
-        a request body for write methods (POST/PATCH/PUT) as one 'gh api -f
-        key=value' pair per entry, which gh serializes to a JSON body.
+        a request body for write methods (POST/PATCH/PUT); each hashtable entry
+        becomes one field, which gh serializes to a JSON body. A scalar string is
+        passed as 'gh api -f key=value'; an integer as 'gh api -F key=value' so
+        gh emits a JSON number; and an array as repeated 'gh api -f key[]=element'
+        pairs that gh collects into a JSON array.
 
         Keeping this helper local means PS.GHOps depends only on the 'gh' CLI,
         not on another PowerShell module. See docs/adr/0002.
@@ -23,8 +26,10 @@ function Invoke-GHApi {
     .PARAMETER Method
         HTTP method. Defaults to 'GET'.
     .PARAMETER Field
-        Request-body fields for a write method, as a hashtable. Each entry is
-        passed as 'gh api -f <key>=<value>'; gh serializes them to a JSON body.
+        Request-body fields for a write method, as a hashtable. String values are
+        passed as 'gh api -f <key>=<value>', integers as typed 'gh api -F
+        <key>=<value>' (JSON number), and array values as repeated 'gh api -f
+        <key>[]=<element>' pairs (JSON array). gh serializes them to a JSON body.
     .PARAMETER AllowNotFound
         Return $null on an HTTP 404 instead of throwing.
     .PARAMETER Paginate
@@ -74,9 +79,22 @@ function Invoke-GHApi {
         $arguments = [System.Collections.Generic.List[System.String]]::new()
         $arguments.AddRange([System.String[]] @('api', $Path))
         if ($Method -ne 'GET') { $arguments.AddRange([System.String[]] @('--method', $Method)) }
-        # REQUEST BODY >> ONE -f key=value PER FIELD; gh SERIALIZES TO JSON
+        # REQUEST BODY >> ONE FIELD PER ENTRY; gh SERIALIZES TO A JSON BODY
         foreach ($key in $Field.Keys) {
-            $arguments.AddRange([System.String[]] @('-f', ('{0}={1}' -f $key, $Field[$key])))
+            $value = $Field[$key]
+            if ($value -is [System.Array]) {
+                # ARRAY VALUE >> REPEATED key[]=element PAIRS BECOME A JSON ARRAY
+                foreach ($element in $value) {
+                    $arguments.AddRange([System.String[]] @('-f', ('{0}[]={1}' -f $key, $element)))
+                }
+            }
+            elseif ($value -is [System.Int32] -or $value -is [System.Int64]) {
+                # TYPED SCALAR >> -F EMITS A JSON NUMBER (e.g. a milestone number)
+                $arguments.AddRange([System.String[]] @('-F', ('{0}={1}' -f $key, $value)))
+            }
+            else {
+                $arguments.AddRange([System.String[]] @('-f', ('{0}={1}' -f $key, $value)))
+            }
         }
         # --slurp COLLECTS PAGES AS AN ARRAY-OF-PAGES; FLATTENED BELOW
         if ($Paginate) { $arguments.AddRange([System.String[]] @('--paginate', '--slurp')) }
