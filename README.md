@@ -30,6 +30,7 @@ Import-Module ./PS.GHOps/PS.GHOps.psd1
 | `Get-GHIssue` | Issue report scoped by org, repo-name prefix, or an explicit repo list. |
 | `Get-GHOpenBranch` | Non-default branches across an org's active repositories. |
 | `Get-GHRepoFile` | Whether a given file path (e.g. `.github/CODEOWNERS`) exists in each repo of an org. |
+| `New-GHLabel` | Create one or more labels in one or more repositories. |
 | `Remove-GHStaleCodeScan` | Removes orphaned code-scanning analyses that block PRs after a scanning workflow is renamed. |
 
 ## Examples
@@ -41,6 +42,9 @@ Get-GHIssue -Organization PS-MCS -Prefix aws
 
 # Which active repos lack a CODEOWNERS file?
 Get-GHRepoFile -Organization PS-MCS -Path '.github/CODEOWNERS' -Filter Missing
+
+# Seed the same label across a handful of repos
+New-GHLabel -Repository 'PS-MCS/gh-org', 'PS-MCS/vdem' -Name 'security' -Color 'd73a4a' -Description 'Security-related work'
 
 # Non-default branches worth cleaning up
 Get-GHOpenBranch -Organization PS-MCS
