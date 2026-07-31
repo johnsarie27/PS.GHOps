@@ -8,19 +8,22 @@ BeforeDiscovery {
 Describe -Name 'New-GHLabel' -Fixture {
     Context -Name 'create' -Fixture {
         BeforeAll {
-            # Create succeeds
-            Mock -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -MockWith { [PSCustomObject] @{ name = 'security' } } `
-                -ParameterFilter { $Method -eq 'POST' }
+            Mock -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -MockWith { $null }
         }
         It -Name 'issues one create per (repository x label)' -Test {
             New-GHLabel -Repository 'PS-MCS/gh-org', 'PS-MCS/vdem' -Name 'security' -Color 'd73a4a' -Confirm:$false | Out-Null
-            Should -Invoke -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -Times 2 -Exactly `
-                -ParameterFilter { $Method -eq 'POST' -and $Path -like '*/labels' }
+            Should -Invoke -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -Times 2 -Exactly `
+                -ParameterFilter { $Argument -contains 'create' }
         }
-        It -Name 'sends name and color in the request body' -Test {
+        It -Name 'passes name, color, and description to gh label create' -Test {
             New-GHLabel -Repository 'PS-MCS/gh-org' -Name 'security' -Color 'd73a4a' -Description 'Security work' -Confirm:$false | Out-Null
-            Should -Invoke -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -Times 1 -Exactly `
-                -ParameterFilter { $Field['name'] -eq 'security' -and $Field['color'] -eq 'd73a4a' -and $Field['description'] -eq 'Security work' }
+            Should -Invoke -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -Times 1 -Exactly `
+                -ParameterFilter {
+                $Argument -contains 'create' -and $Argument -contains 'security' -and
+                $Argument -contains '--repo' -and $Argument -contains 'PS-MCS/gh-org' -and
+                $Argument -contains '--color' -and $Argument -contains 'd73a4a' -and
+                $Argument -contains '--description' -and $Argument -contains 'Security work'
+            }
         }
         It -Name 'projects Repository/Name/Color/Status' -Test {
             $row = New-GHLabel -Repository 'PS-MCS/gh-org' -Name 'security' -Color 'd73a4a' -Confirm:$false
@@ -31,57 +34,65 @@ Describe -Name 'New-GHLabel' -Fixture {
         }
         It -Name 'defaults color to a neutral gray' -Test {
             New-GHLabel -Repository 'PS-MCS/gh-org' -Name 'security' -Confirm:$false | Out-Null
-            Should -Invoke -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -Times 1 -Exactly `
-                -ParameterFilter { $Field['color'] -eq 'ededed' }
+            Should -Invoke -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -Times 1 -Exactly `
+                -ParameterFilter { $Argument -contains '--color' -and $Argument -contains 'ededed' }
         }
     }
     Context -Name 'multiple labels' -Fixture {
         BeforeAll {
-            Mock -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -MockWith { [PSCustomObject] @{ name = 'x' } } `
-                -ParameterFilter { $Method -eq 'POST' }
+            Mock -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -MockWith { $null }
         }
-        It -Name 'creates each label in the spec list' -Test {
+        It -Name 'creates each hashtable spec in the list' -Test {
             $result = New-GHLabel -Repository 'PS-MCS/gh-org' -Label @{ Name = 'tech-debt'; Color = 'fbca04' }, @{ Name = 'security' } -Confirm:$false
             $result | Should -HaveCount 2
-            Should -Invoke -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -Times 2 -Exactly `
-                -ParameterFilter { $Method -eq 'POST' }
+            Should -Invoke -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -Times 2 -Exactly `
+                -ParameterFilter { $Argument -contains 'create' }
+        }
+        It -Name 'accepts PSCustomObject specs' -Test {
+            $spec = [PSCustomObject] @{ Name = 'tech-debt'; Color = 'fbca04'; Description = 'Debt' }
+            $row = New-GHLabel -Repository 'PS-MCS/gh-org' -Label $spec -Confirm:$false
+            $row.Name | Should -Be 'tech-debt'
+            $row.Color | Should -Be 'fbca04'
+            $row.Status | Should -Be 'Created'
+            Should -Invoke -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -Times 1 -Exactly `
+                -ParameterFilter { $Argument -contains 'tech-debt' -and $Argument -contains 'fbca04' -and $Argument -contains 'Debt' }
         }
     }
     Context -Name 'WhatIf' -Fixture {
         BeforeAll {
-            Mock -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -MockWith { [PSCustomObject] @{ name = 'x' } }
+            Mock -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -MockWith { $null }
         }
         It -Name 'creates nothing' -Test {
             New-GHLabel -Repository 'PS-MCS/gh-org' -Name 'security' -WhatIf | Out-Null
-            Should -Invoke -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -Times 0 -Exactly
+            Should -Invoke -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -Times 0 -Exactly
         }
     }
     Context -Name 'existing label' -Fixture {
         BeforeAll {
-            # POST fails with a 422 already_exists
-            Mock -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -MockWith { throw 'gh api repos/PS-MCS/gh-org/labels failed (exit 1): HTTP 422 already_exists' } `
-                -ParameterFilter { $Method -eq 'POST' }
-            # PATCH succeeds
-            Mock -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -MockWith { [PSCustomObject] @{ name = 'security' } } `
-                -ParameterFilter { $Method -eq 'PATCH' }
+            # create fails because the label already exists
+            Mock -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -MockWith { throw 'gh label create failed (exit 1): HTTP 422 already exists' } `
+                -ParameterFilter { $Argument -contains 'create' }
+            # edit succeeds
+            Mock -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -MockWith { $null } `
+                -ParameterFilter { $Argument -contains 'edit' }
         }
         It -Name 'skips with Status Exists by default' -Test {
             $row = New-GHLabel -Repository 'PS-MCS/gh-org' -Name 'security' -Color 'd73a4a' -Confirm:$false -WarningAction SilentlyContinue
             $row.Status | Should -Be 'Exists'
-            Should -Invoke -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -Times 0 -Exactly `
-                -ParameterFilter { $Method -eq 'PATCH' }
+            Should -Invoke -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -Times 0 -Exactly `
+                -ParameterFilter { $Argument -contains 'edit' }
         }
-        It -Name 'patches with Status Updated when -Update is supplied' -Test {
+        It -Name 'edits with Status Updated when -Update is supplied' -Test {
             $row = New-GHLabel -Repository 'PS-MCS/gh-org' -Name 'security' -Color 'd73a4a' -Update -Confirm:$false
             $row.Status | Should -Be 'Updated'
-            Should -Invoke -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -Times 1 -Exactly `
-                -ParameterFilter { $Method -eq 'PATCH' }
+            Should -Invoke -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -Times 1 -Exactly `
+                -ParameterFilter { $Argument -contains 'edit' }
         }
     }
     Context -Name 'create failure' -Fixture {
         BeforeAll {
-            Mock -CommandName Invoke-GHApi -ModuleName 'PS.GHOps' -MockWith { throw 'gh api ... failed (exit 1): HTTP 403 Forbidden' } `
-                -ParameterFilter { $Method -eq 'POST' }
+            Mock -CommandName Invoke-GHCli -ModuleName 'PS.GHOps' -MockWith { throw 'gh label create failed (exit 1): HTTP 403 Forbidden' } `
+                -ParameterFilter { $Argument -contains 'create' }
         }
         It -Name 'emits a Failed row and does not throw' -Test {
             $row = New-GHLabel -Repository 'PS-MCS/gh-org' -Name 'security' -Color 'd73a4a' -Confirm:$false -WarningAction SilentlyContinue

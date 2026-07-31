@@ -8,11 +8,12 @@ function New-GHLabel {
         label to N repositories otherwise means N separate API calls; this
         function wraps that loop.
 
-        Each (repository x label) pair is created independently with the labels
-        REST endpoint via the private Invoke-GHApi helper. An existing label is
-        skipped with a warning (Status 'Exists') unless -Update is supplied, in
-        which case its color and description are patched (Status 'Updated'). A
-        single failure emits a 'Failed' row and does not halt the batch.
+        Each (repository x label) pair is created independently with the
+        'gh label create' subcommand via the private Invoke-GHCli helper. An
+        existing label is skipped with a warning (Status 'Exists') unless
+        -Update is supplied, in which case it is updated with 'gh label edit'
+        (Status 'Updated'). A single failure emits a 'Failed' row and does not
+        halt the batch.
 
         This is targeted label creation, NOT org-wide label synchronization.
 
@@ -55,7 +56,7 @@ function New-GHLabel {
         Comments:
         - Requires the GitHub CLI ('gh') authenticated with a token that has
           write access to issues on the target repositories.
-        https://docs.github.com/en/rest/issues/labels
+        https://cli.github.com/manual/gh_label_create
     #>
     [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'Single')]
     [OutputType([System.Management.Automation.PSCustomObject])]
@@ -118,22 +119,22 @@ function New-GHLabel {
 
                 if (-not $PSCmdlet.ShouldProcess(('{0} :: {1}' -f $repo, $spec.Name), 'Create label')) { continue }
 
-                # CREATE >> POST the label; a 422 means it already exists
+                # CREATE >> gh label create fails when the label already exists
                 $status = 'Created'
                 try {
-                    $body = @{ name = $spec.Name; color = $spec.Color }
-                    if (-not [System.String]::IsNullOrEmpty($spec.Description)) { $body['description'] = $spec.Description }
-                    Invoke-GHApi -Path ('repos/{0}/labels' -f $repo) -Method POST -Field $body | Out-Null
+                    $createArgs = @('label', 'create', $spec.Name, '--repo', $repo, '--color', $spec.Color)
+                    if (-not [System.String]::IsNullOrEmpty($spec.Description)) { $createArgs += @('--description', $spec.Description) }
+                    Invoke-GHCli -Argument $createArgs | Out-Null
                 }
                 catch {
                     if ($PSItem.Exception.Message -match '422|already[ _]exists') {
 
                         if ($Update) {
-                            # UPDATE >> PATCH the existing label's color/description
+                            # UPDATE >> gh label edit changes the existing label's color/description
                             try {
-                                $body = @{ color = $spec.Color }
-                                if (-not [System.String]::IsNullOrEmpty($spec.Description)) { $body['description'] = $spec.Description }
-                                Invoke-GHApi -Path ('repos/{0}/labels/{1}' -f $repo, [System.Uri]::EscapeDataString($spec.Name)) -Method PATCH -Field $body | Out-Null
+                                $editArgs = @('label', 'edit', $spec.Name, '--repo', $repo, '--color', $spec.Color)
+                                if (-not [System.String]::IsNullOrEmpty($spec.Description)) { $editArgs += @('--description', $spec.Description) }
+                                Invoke-GHCli -Argument $editArgs | Out-Null
                                 $status = 'Updated'
                             }
                             catch {
