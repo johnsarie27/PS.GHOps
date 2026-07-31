@@ -29,7 +29,8 @@ function New-GHLabel {
         Optional label description (parameter set 'Single').
     .PARAMETER Label
         One or more label specifications (parameter set 'Multiple'), each a
-        hashtable or object with Name, and optionally Color and Description.
+        hashtable or PSCustomObject with Name, and optionally Color and
+        Description.
     .PARAMETER Update
         Patch the color and description of a label that already exists instead
         of skipping it.
